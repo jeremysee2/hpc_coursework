@@ -8,16 +8,14 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
+#include <boost/program_options.hpp>
 
+#include "mpi.h"
 #include "cblas.h"
+#include "ReactionDiffusion.h"
 
 using namespace std;
 namespace po = boost::program_options;
-
-// #define F77NAME(x) x##_
-// extern "C" {
-
-// }
 
 /**
  * @brief Solves PDE using Barkley model.
