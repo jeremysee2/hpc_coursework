@@ -1,6 +1,6 @@
-CC=g++
+CC=mpicxx
 CXXFLAGS=-Wall -O3 -pedantic
-LDLIBS=-llapack -lblas
+LDLIBS=-llapack -lblas -lboost_program_options
 TARGET=main
 ARGS1=--dt 0.001 --T 100 --Nx 101 --Ny 101 --a 0.75 --b 0.06   --mu1 50.0 --mu2 5.0 --eps 0.0
 ARGS2=--dt 0.001 --T 100 --Nx 251 --Ny 251 --a 0.75 --b 0.06   --mu1 13.0 --mu2 5.0 --eps 0.0
@@ -10,7 +10,7 @@ ARGS4=--dt 0.001 --T 100 --Nx 151 --Ny 81  --a 0.75 --b 0.0001 --mu1 12.5 --mu2 
 default: $(TARGET)
 all: $(TARGET)
 
-$(TARGET): $(TARGET).o
+$(TARGET): $(TARGET).o ReactionDiffusion.o
 
 %.o: %.cpp
 	$(CC) $(CXXFLAGS) -o $@ -c $< $(LDLIBS)
@@ -30,4 +30,4 @@ test4: $(TARGET)
 	./$(TARGET) $(ARGS4)
 
 clean:
-	rm -rf $(TARGET) *.o
+	rm -rf $(TARGET) *.o output.txt
