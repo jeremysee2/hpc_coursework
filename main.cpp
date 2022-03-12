@@ -7,6 +7,7 @@
  */
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 #include <cmath>
 #include <boost/program_options.hpp>
 
@@ -42,11 +43,11 @@ int main(int argc, char* argv[]) {
 
     // Parse parameters from command line
     po::variables_map vm;
-    po::store(po::parse_command_line(ac, av, desc), vm);
+    po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);    
 
     if (vm.count("dt"))      dt  = vm["dt"].as<double>();
-    if (vm.count("T"))       T   = vm["Tt"].as<int>();
+    if (vm.count("T"))       T   = vm["T"].as<int>();
     if (vm.count("Nx"))      Nx  = vm["Nx"].as<int>();
     if (vm.count("Ny"))      Ny  = vm["Ny"].as<int>();
     if (vm.count("a"))       a   = vm["a"].as<double>();
@@ -60,10 +61,12 @@ int main(int argc, char* argv[]) {
          << ", " << Ny << ", " << a << ", " << b << ", " << mu1
          << ", " << mu2 << ", " << eps << endl;
 
+    // Store parameters in ReactionDiffusion Object
+    ReactionDiffusion reactor(dt, T, Nx, Ny, a, b, mu1, mu2, eps);
+
     // TODO: Calculate PDE solution
 
     // File output, values of u,v at each gridpoint x,y
-    std::ofstream outputFile;
-    outputFile.open("output.txt");
+    std::ofstream outputFile("output.txt");
     outputFile.close();
 }
