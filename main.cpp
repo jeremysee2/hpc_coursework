@@ -59,11 +59,12 @@ int main(int argc, char* argv[]) {
 
     // Store parameters in ReactionDiffusion Object
     ReactionDiffusion reactor(dt, T, Nx, Ny, a, b, mu1, mu2, eps, dx, dy);
-    reactor.SetParameters();
+    
+    // Set initial conditions
     reactor.SetInitialConditions();
-    reactor.TimeIntegrate();
 
-    // TODO: Calculate PDE solution
+    // Perform integration
+    reactor.TimeIntegrate();
 
     // File output, values of u,v at each gridpoint x,y
     reactor.writeOutput();

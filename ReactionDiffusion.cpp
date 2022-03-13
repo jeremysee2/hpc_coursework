@@ -21,6 +21,12 @@ RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
     this->eps  = eps;
     this->dx   = dx;
     this->dy   = dy;
+
+    // Allocate memory for the matrix, initialise to zero
+    U1 = new double[Nx*Ny]();
+    U2 = new double[Nx*Ny]();
+    V1 = new double[Nx*Ny]();
+    V2 = new double[Nx*Ny]();
 }
 
 RD::~ReactionDiffusion() {
@@ -46,14 +52,6 @@ void RD::SetInitialConditions() {
     }
 }
 
-void RD::SetParameters() {
-    // Allocate memory for the matrix
-    U1 = new double[Nx*Ny]();
-    U2 = new double[Nx*Ny]();
-    V1 = new double[Nx*Ny]();
-    V2 = new double[Nx*Ny]();
-}
-
 void RD::TimeIntegrate() {
     #pragma omp parallel for
     for (int k = 0; k<int(T/dt); ++k) {
@@ -62,6 +60,75 @@ void RD::TimeIntegrate() {
 }
 
 void RD::TimeIntegrateSingle() {
+    double mu1_val  = mu1/(dx*dy);
+    double mu2_val  = mu2/(dx*dy);
+
+    // Copy to local scope, avoid referencing
+    double ddt = dt;
+    int Nxx = Nx;
+    int Nyy = Ny;
+    #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
+    // for (int i = 1; i < Nxx-1; ++i) {
+    //     for (int j = 1; j < Nyy-1; ++j) {
+    //         int indx = j+Nyy*i;
+    //         double u1_val = U1[indx];
+    //         double v1_val = V1[indx];
+    //         // Iterate over u matrix
+    //         U2[indx] = ddt * (mu1_val * (
+    //                             U1[indx+Nyy] +
+    //                             U1[indx-Nyy] +
+    //                             U1[indx+1]   +
+    //                             U1[indx-1]   -
+    //                             (4)*u1_val)           +
+    //                             f1(u1_val, v1_val)) + u1_val;
+    //         // Iterate over v matrix
+    //         V2[indx] = ddt * (mu2_val * (
+    //                             V1[indx+Nyy] +
+    //                             V1[indx-Nyy] +
+    //                             V1[indx+1]   +
+    //                             V1[indx-1]   -
+    //                             (4)*v1_val)           +
+    //                             f2(u1_val, v1_val)) + v1_val;
+    //     }
+    // }
+    // TimeIntegrateBC();
+
+    for (int i = 0; i < Nxx; ++i) {
+        for (int j = 0; j < Nyy; ++j) {
+            int indx = j+Nyy*i;
+            double u1_val = U1[indx];
+            double v1_val = V1[indx];
+            int multiplier = 4-(i==0)-(j==0)-(i==Nxx-1)-(j==Nyy-1);
+            // Iterate over u matrix
+            U2[indx] = ddt * (mu1_val * (
+                                (i < Nxx-1 ? U1[indx+Nyy] : 0) +
+                                (i         ? U1[indx-Nyy] : 0) +
+                                (j < Nyy-1 ? U1[indx+1] : 0)   +
+                                (j         ? U1[indx-1] : 0)   -
+                                (multiplier)*u1_val)           +
+                                f1(u1_val, v1_val)) + u1_val;
+            // Iterate over v matrix
+            V2[indx] = ddt * (mu2_val * (
+                                (i < Nxx-1 ? V1[indx+Nyy] : 0) +
+                                (i         ? V1[indx-Nyy] : 0) +
+                                (j < Nyy-1 ? V1[indx+1] : 0)   +
+                                (j         ? V1[indx-1] : 0)   -
+                                (multiplier)*v1_val)           +
+                                f2(u1_val, v1_val)) + v1_val;
+        }
+    }
+
+    
+    // Save current time step for next iteration
+    int sz = Nx*Ny;
+    #pragma omp parallel for schedule(static) num_threads(4)
+    for (int i = 0; i < sz; ++i) {
+        U1[i] = U2[i];
+        V1[i] = V2[i];
+    }
+}
+
+void RD::TimeIntegrateBC() {
     double h = dx;
     double mu1_val  = mu1/(h*h);
     double mu2_val  = mu2/(h*h);
@@ -70,9 +137,62 @@ void RD::TimeIntegrateSingle() {
     double ddt = dt;
     int Nxx = Nx;
     int Nyy = Ny;
-    #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
-    for (int i = 0; i < Nxx; ++i) {
+    
+    // Edge x = 0
+    {
+        int i = 0;
+        // #pragma omp parallel for schedule(static) num_threads(4)
         for (int j = 0; j < Nyy; ++j) {
+            int indx = j+Nyy*i;
+            double u1_val = U1[indx];
+            double v1_val = V1[indx];
+            // Iterate over u matrix
+            U2[indx] = ddt * (mu1_val * (
+                                U1[indx+Nyy]                  +
+                                (j < Nyy-1 ? U1[indx+1] : 0)  +
+                                (j         ? U1[indx-1] : 0)  -
+                                (3-(j==0)-(j==Nyy-1))*u1_val) +
+                                f1(u1_val, v1_val)) + u1_val;
+            // Iterate over v matrix
+            V2[indx] = ddt * (mu2_val * (
+                                V1[indx+Nyy]                  +
+                                (j < Nyy-1 ? V1[indx+1] : 0)  +
+                                (j         ? V1[indx-1] : 0)  -
+                                (3-(j==0)-(j==Nyy-1))*v1_val) +
+                                f2(u1_val, v1_val)) + v1_val;
+        }
+    }
+
+    // Edge x = Nx - 1
+    {
+        int i = Nxx - 1;
+        // #pragma omp parallel for schedule(static) num_threads(4)
+        for (int j = 0; j < Nyy; ++j) {
+            int indx = j+Nyy*i;
+            double u1_val = U1[indx];
+            double v1_val = V1[indx];
+            // Iterate over u matrix
+            U2[indx] = ddt * (mu1_val * (
+                                U1[indx-Nyy]                  +
+                                (j < Nyy-1 ? U1[indx+1] : 0)  +
+                                (j         ? U1[indx-1] : 0)  -
+                                (3-(j==0)-(j==Nyy-1))*u1_val) +
+                                f1(u1_val, v1_val)) + u1_val;
+            // Iterate over v matrix
+            V2[indx] = ddt * (mu2_val * (
+                                V1[indx-Nyy]                  +
+                                (j < Nyy-1 ? V1[indx+1] : 0)  +
+                                (j         ? V1[indx-1] : 0)  -
+                                (3-(j==0)-(j==Nyy-1))*v1_val) +
+                                f2(u1_val, v1_val)) + v1_val;
+        }
+    }
+
+    // Edge y = 0
+    {
+        int j = 0;
+        // #pragma omp parallel for schedule(static) num_threads(4)
+        for (int i = 0; i < Nxx; ++i) {
             int indx = j+Nyy*i;
             double u1_val = U1[indx];
             double v1_val = V1[indx];
@@ -80,28 +200,44 @@ void RD::TimeIntegrateSingle() {
             U2[indx] = ddt * (mu1_val * (
                                 (i < Nxx-1 ? U1[indx+Nyy] : 0) +
                                 (i         ? U1[indx-Nyy] : 0) +
-                                (j < Nyy-1 ? U1[indx+1] : 0) +
-                                (j         ? U1[indx-1] : 0) -
-                                (4-(i==0)-(j==0)-(i==Nxx-1)-(j==Nyy-1))*u1_val) +
+                                U1[indx+1]                     -
+                                (3-(i==0)-(i==Nxx-1))*u1_val)  +
                                 f1(u1_val, v1_val)) + u1_val;
             // Iterate over v matrix
             V2[indx] = ddt * (mu2_val * (
                                 (i < Nxx-1 ? V1[indx+Nyy] : 0) +
                                 (i         ? V1[indx-Nyy] : 0) +
-                                (j < Nyy-1 ? V1[indx+1] : 0) +
-                                (j         ? V1[indx-1] : 0) -
-                                (4-(i==0)-(j==0)-(i==Nxx-1)-(j==Nyy-1))*v1_val) +
+                                V1[indx+1]                     -
+                                (3-(i==0)-(i==Nxx-1))*v1_val)  +
                                 f2(u1_val, v1_val)) + v1_val;
         }
     }
 
-    // Save current time step for next iteration
-    int sz = Nx*Ny;
-    #pragma omp parallel for schedule(static) num_threads(4)
-    for (int i = 0; i < sz; ++i) {
-        U1[i] = U2[i];
-        V1[i] = V2[i];
+    // Edge y = Ny - 1
+    {
+        int j = Nyy - 1;
+        // #pragma omp parallel for schedule(static) num_threads(4)
+        for (int i = 0; i < Nxx; ++i) {
+            int indx = j+Nyy*i;
+            double u1_val = U1[indx];
+            double v1_val = V1[indx];
+            // Iterate over u matrix
+            U2[indx] = ddt * (mu1_val * (
+                                (i < Nxx-1 ? U1[indx+Nyy] : 0) +
+                                (i         ? U1[indx-Nyy] : 0) +
+                                U1[indx-1]                     -
+                                (3-(i==0)-(i==Nxx-1))*u1_val)  +
+                                f1(u1_val, v1_val)) + u1_val;
+            // Iterate over v matrix
+            V2[indx] = ddt * (mu2_val * (
+                                (i < Nxx-1 ? V1[indx+Nyy] : 0) +
+                                (i         ? V1[indx-Nyy] : 0) +
+                                V1[indx-1]                     -
+                                (3-(i==0)-(i==Nxx-1))*v1_val)  +
+                                f2(u1_val, v1_val)) + v1_val;
+        }
     }
+
 }
 
 void RD::writeOutput() {
