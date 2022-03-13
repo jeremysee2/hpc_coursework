@@ -2,7 +2,7 @@
  * @file main.cpp
  *
  * High-Performance Computing Coursework.
- * Solves PDE using Barkley model, parallelised code with MPI.
+ * Solves PDE using Barkley model, parallelised code with OpenMP.
  * 
  */
 #include <iostream>
