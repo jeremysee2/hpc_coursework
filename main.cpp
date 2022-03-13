@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 
     // Default parameters
     int Nx = 101, Ny = 101, T = 100, dx = 1, dy = 1;
-    double dt = 0.001, a = 0.75, b = 0.06, eps = 50.0, mu1 = 5.0, mu2 = 50.0;
+    double dt = 0.001, a = 0.75, b = 0.06, eps = 50.0, mu1 = 5.0, mu2 = 0.0;
 
     // Parse parameters from command line
     po::variables_map vm;

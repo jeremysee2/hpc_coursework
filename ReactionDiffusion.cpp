@@ -59,7 +59,7 @@ void RD::SetInitialConditions() {
 
 void RD::TimeIntegrate() {
     int timeSteps = int(T/dt);
-    #pragma omp parallel for
+    // Cannot parallelise this, due to race condition
     for (int k = 0; k<timeSteps; ++k) {
         TimeIntegrateSingle();
     }
@@ -100,7 +100,7 @@ void RD::TimeIntegrateSingle() {
     // }
     
 
-    #pragma omp parallel for schedule(static) collapse(2)
+    #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
     for (int i = 0; i < Nxx; ++i) {
         for (int j = 0; j < Nyy; ++j) {
             int indx = j+Nyy*i;
@@ -129,7 +129,7 @@ void RD::TimeIntegrateSingle() {
     
     // Save current time step for next iteration
     int sz = Nx*Ny;
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static) num_threads(4)
     for (int i = 0; i < sz; ++i) {
         U1[i] = U2[i];
         V1[i] = V2[i];
