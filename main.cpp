@@ -57,9 +57,14 @@ int main(int argc, char* argv[]) {
          << ", " << Ny << ", " << a << ", " << b << ", " << mu1
          << ", " << mu2 << ", " << eps << endl;
 
+    if (dt <= 0.0 || T < 0.0 || Nx < 0 || Ny < 0 || a < 0.0 ||
+        b < 0.0 || mu1 < 0.0 || mu2 < 0.0 || eps < 0.0) {
+            throw invalid_argument("Invalid parameters!");
+        }
+
     // Store parameters in ReactionDiffusion Object
     ReactionDiffusion reactor(dt, T, Nx, Ny, a, b, mu1, mu2, eps, dx, dy);
-    
+
     // Set initial conditions
     reactor.SetInitialConditions();
 
@@ -68,4 +73,6 @@ int main(int argc, char* argv[]) {
 
     // File output, values of u,v at each gridpoint x,y
     reactor.writeOutput();
+
+    return 0;
 }
