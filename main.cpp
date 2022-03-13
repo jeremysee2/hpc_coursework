@@ -6,13 +6,9 @@
  * 
  */
 #include <iostream>
-#include <iomanip>
-#include <fstream>
 #include <cmath>
 #include <boost/program_options.hpp>
 
-#include "mpi.h"
-#include "cblas.h"
 #include "ReactionDiffusion.h"
 
 using namespace std;
@@ -27,7 +23,7 @@ int main(int argc, char* argv[]) {
     po::options_description desc("Allowed options");
     desc.add_options()
         ("dt",  po::value<double>(),  "Time-step to use.")
-        ("T",   po::value<double>(),  "Total integration time.")
+        ("T",   po::value<int>(),     "Total integration time.")
         ("Nx",  po::value<int>(),     "Number of grid points in x")
         ("Ny",  po::value<int>(),     "Number of grid points in y")
         ("a",   po::value<double>(),  "Value of parameter a")
@@ -39,7 +35,7 @@ int main(int argc, char* argv[]) {
 
     // Default parameters
     int Nx = 101, Ny = 101, T = 100, dx = 1, dy = 1;
-    double dt = 0.001, a = 0.75, b = 0.06, eps = 50.0, mu1 = 5.0, mu2 = 0.0;
+    double dt = 0.001, a = 0.75, b = 0.06, eps = 50.0, mu1 = 5.0, mu2 = 50.0;
 
     // Parse parameters from command line
     po::variables_map vm;
@@ -52,9 +48,9 @@ int main(int argc, char* argv[]) {
     if (vm.count("Ny"))      Ny  = vm["Ny"].as<int>();
     if (vm.count("a"))       a   = vm["a"].as<double>();
     if (vm.count("b"))       b   = vm["b"].as<double>();
-    if (vm.count("mu1"))     mu1 = vm["a"].as<double>();
-    if (vm.count("mu2"))     mu2 = vm["b"].as<double>();
-    if (vm.count("eps"))     eps = vm["a"].as<double>();
+    if (vm.count("mu1"))     mu1 = vm["mu1"].as<double>();
+    if (vm.count("mu2"))     mu2 = vm["mu2"].as<double>();
+    if (vm.count("eps"))     eps = vm["eps"].as<double>();
 
     // Display current parameters
     cout << "Arguments: " << dt << ", " << T << ", " << Nx
@@ -62,11 +58,13 @@ int main(int argc, char* argv[]) {
          << ", " << mu2 << ", " << eps << endl;
 
     // Store parameters in ReactionDiffusion Object
-    ReactionDiffusion reactor(dt, T, Nx, Ny, a, b, mu1, mu2, eps);
+    ReactionDiffusion reactor(dt, T, Nx, Ny, a, b, mu1, mu2, eps, dx, dy);
+    reactor.SetParameters();
+    reactor.SetInitialConditions();
+    reactor.TimeIntegrate();
 
     // TODO: Calculate PDE solution
 
     // File output, values of u,v at each gridpoint x,y
-    std::ofstream outputFile("output.txt");
-    outputFile.close();
+    reactor.writeOutput();
 }
