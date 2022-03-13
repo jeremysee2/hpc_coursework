@@ -3,9 +3,6 @@
 
 class ReactionDiffusion {
     private:
-        double f1_(double u, double v); /// Calculate parameter f1
-        double f2_(double u, double v); /// Calculate parameter f2
-
         int Nx, Ny, T, dx, dy;
         double dt, a, b, eps, mu1, mu2;
         double* U1;
@@ -32,30 +29,23 @@ class ReactionDiffusion {
          * @param mu1   Value of parameter mu1
          * @param mu2   Value of parameter mu2
          * @param eps   Value of parameter epsilon
-         * @return int Error code.
          */
-        int SetParameters();
+        void SetParameters();
 
         /**
          * @brief Set the Initial Conditions of the problem
-         * 
-         * @return int Error code.
          */
-        int SetInitialConditions();
+        void SetInitialConditions();
 
         /**
          * @brief Perform the full solution.
-         * 
-         * @return int Error code.
          */
-        int TimeIntegrate();
+        void TimeIntegrate();
 
         /**
          * @brief Perform one time step of the integration.
-         * 
-         * @return int Error code.
          */
-        int TimeIntegrateSingle();
+        void TimeIntegrateSingle();
 
         /**
          * @brief Getter method to output entire grid.

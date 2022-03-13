@@ -4,6 +4,8 @@
 #include "ReactionDiffusion.h"
 
 #define RD ReactionDiffusion
+#define f1(u,v) (eps*u*(1.0-u)* (u - (v+b)/a))
+#define f2(u,v) (u*u*u - v)
 
 RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
                         double b, double mu1, double mu2, double eps,
@@ -28,7 +30,7 @@ RD::~ReactionDiffusion() {
     if(V2) delete V2;
 }
 
-int RD::SetInitialConditions() {
+void RD::SetInitialConditions() {
     // Set boundary conditions for u
     for (int i = 0; i<Nx; ++i) {
         for (int j = Ny/2+1; j<Ny; ++j) {
@@ -42,63 +44,64 @@ int RD::SetInitialConditions() {
             V1[j+Ny*i] = a/2.0;
         }
     }
-    return 0;
 }
 
-int RD::SetParameters() {
+void RD::SetParameters() {
     // Allocate memory for the matrix
     U1 = new double[Nx*Ny]();
     U2 = new double[Nx*Ny]();
     V1 = new double[Nx*Ny]();
     V2 = new double[Nx*Ny]();
-    return 0;
 }
 
-int RD::TimeIntegrate() {
+void RD::TimeIntegrate() {
     #pragma omp parallel for
     for (int k = 0; k<int(T/dt); ++k) {
         TimeIntegrateSingle();
     }
-    return 0;
 }
 
-int RD::TimeIntegrateSingle() {
-    // Iterate over u matrix
+void RD::TimeIntegrateSingle() {
     double h = dx;
-    for (int i = 0; i < Nx; ++i) {
-        for (int j = 0; j < Ny; ++j) {
-            U2[j+Ny*i] = dt * (mu1 /(h*h) * (
-                                (i < Nx-1 ? U1[j+Ny*(i+1)] : 0) +
-                                (i        ? U1[j+Ny*(i-1)] : 0) +
-                                (j < Ny-1 ? U1[(j+1)+Ny*i] : 0) +
-                                (j        ? U1[(j-1)+Ny*i] : 0) -
-                                (4-(i==0)-(j==0)-(i==Nx-1)-(j==Ny-1))*U1[j+Ny*i]) +
-                                f1_(U1[j+Ny*i], V1[j+Ny*i])) + U1[j+Ny*i];
-        }
-    }
+    double mu1_val  = mu1/(h*h);
+    double mu2_val  = mu2/(h*h);
 
-
-    // Iterate over v matrix
-    for (int i = 0; i < Nx; ++i) {
-        for (int j = 0; j < Ny; ++j) {
-            V2[j+Ny*i] = dt * (mu1 /(h*h) * (
-                                (i < Nx-1 ? V1[j+Ny*(i+1)] : 0) +
-                                (i        ? V1[j+Ny*(i-1)] : 0) +
-                                (j < Ny-1 ? V1[(j+1)+Ny*i] : 0) +
-                                (j        ? V1[(j-1)+Ny*i] : 0) -
-                                (4-(i==0)-(j==0)-(i==Nx-1)-(j==Ny-1))*V1[j+Ny*i]) +
-                                f2_(U1[j+Ny*i], V1[j+Ny*i])) + V1[j+Ny*i];
+    // Copy to local scope, avoid referencing
+    double ddt = dt;
+    int Nxx = Nx;
+    int Nyy = Ny;
+    #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
+    for (int i = 0; i < Nxx; ++i) {
+        for (int j = 0; j < Nyy; ++j) {
+            int indx = j+Nyy*i;
+            double u1_val = U1[indx];
+            double v1_val = V1[indx];
+            // Iterate over u matrix
+            U2[indx] = ddt * (mu1_val * (
+                                (i < Nxx-1 ? U1[indx+Nyy] : 0) +
+                                (i         ? U1[indx-Nyy] : 0) +
+                                (j < Nyy-1 ? U1[indx+1] : 0) +
+                                (j         ? U1[indx-1] : 0) -
+                                (4-(i==0)-(j==0)-(i==Nxx-1)-(j==Nyy-1))*u1_val) +
+                                f1(u1_val, v1_val)) + u1_val;
+            // Iterate over v matrix
+            V2[indx] = ddt * (mu2_val * (
+                                (i < Nxx-1 ? V1[indx+Nyy] : 0) +
+                                (i         ? V1[indx-Nyy] : 0) +
+                                (j < Nyy-1 ? V1[indx+1] : 0) +
+                                (j         ? V1[indx-1] : 0) -
+                                (4-(i==0)-(j==0)-(i==Nxx-1)-(j==Nyy-1))*v1_val) +
+                                f2(u1_val, v1_val)) + v1_val;
         }
     }
 
     // Save current time step for next iteration
-    for (int i = 0; i < Nx; ++i) {
-        for (int j = 0; j < Ny; ++j) {
-            U1[j+Ny*i] = U2[j+Ny*i];
-            V1[j+Ny*i] = V2[j+Ny*i];
-        }
+    int sz = Nx*Ny;
+    #pragma omp parallel for schedule(static) num_threads(4)
+    for (int i = 0; i < sz; ++i) {
+        U1[i] = U2[i];
+        V1[i] = V2[i];
     }
-    return 0;
 }
 
 void RD::writeOutput() {
@@ -110,12 +113,4 @@ void RD::writeOutput() {
         outputFile << std::endl;
     }
     outputFile.close();
-}
-
-double RD::f1_(double u, double v) {
-    return double (eps*u*(1.0-u)* (u - (v+b)/a));
-}
-
-double RD::f2_(double u, double v) {
-    return double (u*u*u - v);
 }
