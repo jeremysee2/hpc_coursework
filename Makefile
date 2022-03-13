@@ -1,6 +1,6 @@
-CC=mpicxx
-CXXFLAGS=-Wall -O3 -pedantic
-LDLIBS=-llapack -lblas -lboost_program_options
+CC=g++
+CXXFLAGS=-Wall -O3 -pedantic -g
+LDLIBS=-fopenmp -lboost_program_options
 TARGET=main
 ARGS1=--dt 0.001 --T 100 --Nx 101 --Ny 101 --a 0.75 --b 0.06   --mu1 50.0 --mu2 5.0 --eps 0.0
 ARGS2=--dt 0.001 --T 100 --Nx 251 --Ny 251 --a 0.75 --b 0.06   --mu1 13.0 --mu2 5.0 --eps 0.0
