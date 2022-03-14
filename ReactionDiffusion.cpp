@@ -73,10 +73,9 @@ void RD::TimeIntegrateSingle() {
     double ddt = dt;
     int Nxx = Nx;
     int Nyy = Ny;
-    // TimeIntegrateBC();
-    // #pragma omp parallel for schedule(static) collapse(2)
-    // for (int i = 0; i < Nxx; ++i) {
-    //     for (int j = 0; j < Nyy; ++j) {
+    // #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
+    // for (int i = 1; i < Nxx-1; ++i) {
+    //     for (int j = 1; j < Nyy-1; ++j) {
     //         int indx = j+Nyy*i;
     //         double u1_val = U1[indx];
     //         double v1_val = V1[indx];
@@ -98,7 +97,7 @@ void RD::TimeIntegrateSingle() {
     //                             f2(u1_val, v1_val)) + v1_val;
     //     }
     // }
-    
+    // TimeIntegrateBC();
 
     #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
     for (int i = 0; i < Nxx; ++i) {
@@ -126,7 +125,6 @@ void RD::TimeIntegrateSingle() {
         }
     }
 
-    
     // Save current time step for next iteration
     int sz = Nx*Ny;
     #pragma omp parallel for schedule(static) num_threads(4)
@@ -146,7 +144,7 @@ void RD::TimeIntegrateBC() {
     int Nxx = Nx;
     int Nyy = Ny;
     
-    #pragma omp parallel for schedule(static)
+    // #pragma omp parallel for schedule(static)
     for (int j = 0; j < Nyy; ++j) {
         // Edge x = 0
         int i = 0;
@@ -195,7 +193,7 @@ void RD::TimeIntegrateBC() {
                             f2(u1_val, v1_val)) + v1_val;
     }
 
-    #pragma omp parallel for schedule(static)
+    // #pragma omp parallel for schedule(static)
     for (int i = 0; i < Nxx; ++i) {
         // Edge y = 0
         int j = 0;
