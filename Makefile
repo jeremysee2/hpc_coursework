@@ -19,16 +19,16 @@ $(TARGET): $(TARGET).o ReactionDiffusion.o
 .PHONY: clean
 
 test1: $(TARGET)
-	mpirun -n $(NP) ./$(TARGET) $(ARGS1)
+	mpiexec -np $(NP) ./$(TARGET) $(ARGS1)
 
 test2: $(TARGET)
-	mpirun -n $(NP) ./$(TARGET) $(ARGS2)
+	mpiexec -np $(NP) ./$(TARGET) $(ARGS2)
 
 test3: $(TARGET)
-	mpirun -n $(NP) ./$(TARGET) $(ARGS3)
+	mpiexec -np $(NP) ./$(TARGET) $(ARGS3)
 
 test4: $(TARGET)
-	mpirun -n $(NP) ./$(TARGET) $(ARGS4)
+	mpiexec -np $(NP) ./$(TARGET) $(ARGS4)
 
 clean:
 	rm -rf $(TARGET) *.o output.txt
