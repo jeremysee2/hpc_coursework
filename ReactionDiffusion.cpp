@@ -32,10 +32,10 @@ RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
 
     // Allocate memory for the matrix for each process, initialise to zero
     try {
-        U1 = new double[(partition+2)*Ny]();
-        U2 = new double[(partition+2)*Ny]();
-        V1 = new double[(partition+2)*Ny]();
-        V2 = new double[(partition+2)*Ny]();
+        U1 = new double[(partition+4)*Ny]();
+        U2 = new double[(partition+4)*Ny]();
+        V1 = new double[(partition+4)*Ny]();
+        V2 = new double[(partition+4)*Ny]();
     } catch (std::bad_alloc& ex) {
         std::cout << "Out of memory!" << std::endl;
         std::exit(1);
@@ -148,16 +148,16 @@ void RD::TimeIntegrateSingle() {
 void RD::writeOutput() {
     // Gather entire grid into one process
     if (rank == 0) {
-        U_output = new double[Nx*Ny]();
-        MPI_Gather(&U1[Ny], ((sz-2)*Ny), MPI_DOUBLE, U_output, ((sz-2)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        U_output = new double[(Nx+4)*Ny]();
+        MPI_Gather(&U1[Ny], ((partition)*Ny), MPI_DOUBLE, U_output, ((partition)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
     } else {
-        MPI_Gather(&U1[Ny], ((sz-2)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(&U1[Ny], ((partition)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
     if (rank == 0) {
-        V_output = new double[Nx*Ny]();
-        MPI_Gather(&V1[Ny], ((sz-2)*Ny), MPI_DOUBLE, V_output, ((sz-2)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        V_output = new double[(Nx+4)*Ny]();
+        MPI_Gather(&V1[Ny], ((partition)*Ny), MPI_DOUBLE, V_output, ((partition)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
     } else {
-        MPI_Gather(&V1[Ny], ((sz-2)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(&V1[Ny], ((partition)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Barrier to ensure that root thread (0) has received all data
