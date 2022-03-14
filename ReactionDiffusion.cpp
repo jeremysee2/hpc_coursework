@@ -148,16 +148,22 @@ void RD::TimeIntegrateSingle() {
 void RD::writeOutput() {
     // Gather entire grid into one process
     if (rank == 0) {
-        U_output = new double[(Nx+4)*Ny]();
-        MPI_Gather(&U1[Ny], ((partition)*Ny), MPI_DOUBLE, U_output, ((partition)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    } else {
-        MPI_Gather(&U1[Ny], ((partition)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        U_output = new double[Nx*Ny*2]();
+        V_output = new double[Nx*Ny*2]();
     }
+
+    int sendSize  = (partition)*Ny;
+
     if (rank == 0) {
-        V_output = new double[(Nx+4)*Ny]();
-        MPI_Gather(&V1[Ny], ((partition)*Ny), MPI_DOUBLE, V_output, ((partition)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(&U1[Ny], sendSize, MPI_DOUBLE, U_output, sendSize, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     } else {
-        MPI_Gather(&V1[Ny], ((partition)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gather(&U1[Ny], sendSize, MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
+
+    if (rank == 0) {
+        MPI_Gather(&V1[Ny], sendSize, MPI_DOUBLE, V_output, sendSize, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Gather(&V1[Ny], sendSize, MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     // Barrier to ensure that root thread (0) has received all data
