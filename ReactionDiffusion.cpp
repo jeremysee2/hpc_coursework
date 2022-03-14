@@ -73,33 +73,8 @@ void RD::TimeIntegrateSingle() {
     double ddt = dt;
     int Nxx = Nx;
     int Nyy = Ny;
-    // #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
-    // for (int i = 1; i < Nxx-1; ++i) {
-    //     for (int j = 1; j < Nyy-1; ++j) {
-    //         int indx = j+Nyy*i;
-    //         double u1_val = U1[indx];
-    //         double v1_val = V1[indx];
-    //         // Iterate over u matrix
-    //         U2[indx] = ddt * (mu1_val * (
-    //                             U1[indx+Nyy] +
-    //                             U1[indx-Nyy] +
-    //                             U1[indx+1]   +
-    //                             U1[indx-1]   -
-    //                             (4)*u1_val)           +
-    //                             f1(u1_val, v1_val)) + u1_val;
-    //         // Iterate over v matrix
-    //         V2[indx] = ddt * (mu2_val * (
-    //                             V1[indx+Nyy] +
-    //                             V1[indx-Nyy] +
-    //                             V1[indx+1]   +
-    //                             V1[indx-1]   -
-    //                             (4)*v1_val)           +
-    //                             f2(u1_val, v1_val)) + v1_val;
-    //     }
-    // }
-    // TimeIntegrateBC();
 
-    #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
+    #pragma omp parallel for schedule(static) collapse(2) num_threads(1)
     for (int i = 0; i < Nxx; ++i) {
         for (int j = 0; j < Nyy; ++j) {
             int indx = j+Nyy*i;
@@ -127,119 +102,10 @@ void RD::TimeIntegrateSingle() {
 
     // Save current time step for next iteration
     int sz = Nx*Ny;
-    #pragma omp parallel for schedule(static) num_threads(4)
+    #pragma omp parallel for schedule(static) num_threads(1)
     for (int i = 0; i < sz; ++i) {
         U1[i] = U2[i];
         V1[i] = V2[i];
-    }
-}
-
-void RD::TimeIntegrateBC() {
-    double h = dx*dy;
-    double mu1_val  = mu1/h;
-    double mu2_val  = mu2/h;
-
-    // Copy to local scope, avoid referencing
-    double ddt = dt;
-    int Nxx = Nx;
-    int Nyy = Ny;
-    
-    // #pragma omp parallel for schedule(static)
-    for (int j = 0; j < Nyy; ++j) {
-        // Edge x = 0
-        int i = 0;
-        int indx = j+Nyy*i;
-        double u1_val = U1[indx];
-        double u1_val2 = (j < Nyy-1 ? U1[indx+1] : 0);
-        double u1_val3 = (j         ? U1[indx-1] : 0);
-        double v1_val = V1[indx];
-        double v1_val2 = (j < Nyy-1 ? V1[indx+1] : 0);
-        double v1_val3 = (j         ? V1[indx-1] : 0);
-        int multiplier = 3-(j==0)-(j==Nyy-1);
-
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            U1[indx+Nyy] +
-                            u1_val2  +
-                            u1_val3  -
-                            multiplier*u1_val) +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            V1[indx+Nyy] +
-                            v1_val2  +
-                            v1_val3  -
-                            multiplier*v1_val) +
-                            f2(u1_val, v1_val)) + v1_val;
-
-        // Edge x = Nx - 1
-        i = Nxx - 1;
-        indx = j+Nyy*i;
-        u1_val = U1[indx];
-        v1_val = V1[indx];
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            U1[indx-Nyy] +
-                            u1_val2  +
-                            u1_val3  -
-                            multiplier*u1_val) +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            V1[indx-Nyy] +
-                            v1_val2  +
-                            v1_val3  -
-                            multiplier*v1_val) +
-                            f2(u1_val, v1_val)) + v1_val;
-    }
-
-    // #pragma omp parallel for schedule(static)
-    for (int i = 0; i < Nxx; ++i) {
-        // Edge y = 0
-        int j = 0;
-        int indx = j+Nyy*i;
-        double u1_val = U1[indx];
-        double u1_val2 = (i < Nxx-1 ? U1[indx+Nyy] : 0);
-        double u1_val3 = (i         ? U1[indx-Nyy] : 0);
-        double v1_val = V1[indx];
-        double v1_val2 = (i < Nxx-1 ? V1[indx+Nyy] : 0);
-        double v1_val3 = (i         ? V1[indx-Nyy] : 0);
-        int multiplier = (3-(i==0)-(i==Nxx-1));
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            u1_val2 +
-                            u1_val3 +
-                            U1[indx+1] -
-                            multiplier*u1_val)  +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            v1_val2 +
-                            v1_val3 +
-                            V1[indx+1] -
-                            multiplier*v1_val)  +
-                            f2(u1_val, v1_val)) + v1_val;
-
-        // Edge y = Ny - 1
-        j = Nyy - 1;
-        indx = j+Nyy*i;
-        u1_val = U1[indx];
-        v1_val = V1[indx];
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            u1_val2 +
-                            u1_val3 +
-                            U1[indx-1] -
-                            multiplier*u1_val)  +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            v1_val2 +
-                            v1_val3 +
-                            V1[indx-1] -
-                            multiplier*v1_val)  +
-                            f2(u1_val, v1_val)) + v1_val;
-
     }
 }
 
