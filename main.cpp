@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
     cout << "Starting with " << sz << " processes from process " << rank << endl;
 
     // Store parameters in ReactionDiffusion Object
-    ReactionDiffusion reactor(dt, T, Nx, Ny, a, b, mu1, mu2, eps, dx, dy, myStart, myEnd);
+    ReactionDiffusion reactor(dt, T, Nx, Ny, a, b, mu1, mu2, eps, dx, dy, myStart, myEnd, partition);
 
     // Set initial conditions
     reactor.SetInitialConditions();

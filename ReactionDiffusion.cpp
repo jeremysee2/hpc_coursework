@@ -10,7 +10,7 @@
 
 RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
                         double b, double mu1, double mu2, double eps,
-                        double dx, double dy, int start, int end) {
+                        double dx, double dy, int start, int end, int partition) {
     this->dt   = dt;
     this->T    = T;
     this->Nx   = Nx;
@@ -24,17 +24,18 @@ RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
     this->dy   = dy;
     this->start = start;        // Off-by-one due to left padding  (Ny)
     this->end   = end;          // Off-by-one due to right padding ((sz-1)*Ny)
-    this->sz = end - start + 2; // Add 2 columns for left and right edge
+    this->partition = partition;
+    this->sz = end-start + 2; // Add 2 columns for left and right edge
 
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Allocate memory for the matrix for each process, initialise to zero
     try {
-        U1 = new double[sz*Ny]();
-        U2 = new double[sz*Ny]();
-        V1 = new double[sz*Ny]();
-        V2 = new double[sz*Ny]();
+        U1 = new double[(partition+2)*Ny]();
+        U2 = new double[(partition+2)*Ny]();
+        V1 = new double[(partition+2)*Ny]();
+        V2 = new double[(partition+2)*Ny]();
     } catch (std::bad_alloc& ex) {
         std::cout << "Out of memory!" << std::endl;
         std::exit(1);

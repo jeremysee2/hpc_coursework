@@ -3,7 +3,7 @@
 
 class ReactionDiffusion {
     private:
-        int Nx, Ny, T, dx, dy, start, end, sz, rank, size;
+        int Nx, Ny, T, dx, dy, start, end, sz, rank, size, partition;
         double dt, a, b, eps, mu1, mu2;
         double* U1;
         double* V1;
@@ -27,7 +27,7 @@ class ReactionDiffusion {
          */
         ReactionDiffusion(double dt, int T, int Nx, int Ny, double a,
                           double b, double mu1, double mu2, double eps,
-                          double dx, double dy, int start, int end);
+                          double dx, double dy, int start, int end, int partition);
         /// Destructor, free memory
         ~ReactionDiffusion();
 
