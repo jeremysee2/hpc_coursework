@@ -3,12 +3,14 @@
 
 class ReactionDiffusion {
     private:
-        int Nx, Ny, T, dx, dy;
+        int Nx, Ny, T, dx, dy, start, end, sz, rank, size;
         double dt, a, b, eps, mu1, mu2;
         double* U1;
         double* V1;
         double* U2;
         double* V2;
+        double* U_output;
+        double* V_output;
     public:
         /**
          * @brief Set the Parameters required for the problem, initialise the 2D matrix.
@@ -25,7 +27,7 @@ class ReactionDiffusion {
          */
         ReactionDiffusion(double dt, int T, int Nx, int Ny, double a,
                           double b, double mu1, double mu2, double eps,
-                          double dx = 1, double dy = 1);
+                          double dx, double dy, int start, int end);
         /// Destructor, free memory
         ~ReactionDiffusion();
 

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <mpi.h>
 #include "ReactionDiffusion.h"
 
 #define RD ReactionDiffusion
@@ -9,7 +10,7 @@
 
 RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
                         double b, double mu1, double mu2, double eps,
-                        double dx, double dy) {
+                        double dx, double dy, int start, int end) {
     this->dt   = dt;
     this->T    = T;
     this->Nx   = Nx;
@@ -21,13 +22,19 @@ RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
     this->eps  = eps;
     this->dx   = dx;
     this->dy   = dy;
+    this->start = start;        // Off-by-one due to left padding  (Ny)
+    this->end   = end;          // Off-by-one due to right padding ((sz-1)*Ny)
+    this->sz = end - start + 2; // Add 2 columns for left and right edge
 
-    // Allocate memory for the matrix, initialise to zero
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    // Allocate memory for the matrix for each process, initialise to zero
     try {
-        U1 = new double[Nx*Ny]();
-        U2 = new double[Nx*Ny]();
-        V1 = new double[Nx*Ny]();
-        V2 = new double[Nx*Ny]();
+        U1 = new double[sz*Ny]();
+        U2 = new double[sz*Ny]();
+        V1 = new double[sz*Ny]();
+        V2 = new double[sz*Ny]();
     } catch (std::bad_alloc& ex) {
         std::cout << "Out of memory!" << std::endl;
         std::exit(1);
@@ -42,26 +49,29 @@ RD::~ReactionDiffusion() {
 }
 
 void RD::SetInitialConditions() {
-    // Set boundary conditions for u
-    for (int i = 0; i<Nx; ++i) {
+    // Set boundary conditions for u, for each slice
+    for (int i = 1; i<sz-1; ++i) {
         for (int j = Ny/2+1; j<Ny; ++j) {
             U1[j+Ny*i] = 1.0;
         }
     }
 
-    // Set boundary conditions for v
-    for (int i = 0; i<(Nx/2); ++i) {
-        for (int j = 0; j<Ny; ++j) {
-            V1[j+Ny*i] = a/2.0;
+    // Set boundary conditions for v, for each slice (if applicable)
+    if (start < Nx/2) {
+        for (int i = 1; i<(end > Nx/2 ? Nx/2-start+1 : sz-1); ++i) {
+            for (int j = 0; j<Ny; ++j) {
+                V1[j+Ny*i] = a/2.0;
+            }
         }
     }
 }
 
 void RD::TimeIntegrate() {
     int timeSteps = int(T/dt);
-    // Cannot parallelise this, due to race condition
+    // Timesteps must be calculated sequentially
     for (int k = 0; k<timeSteps; ++k) {
         TimeIntegrateSingle();
+        // if (rank==0) std::cout << "Completed timestep " << k << std::endl;
     }
 }
 
@@ -73,51 +83,25 @@ void RD::TimeIntegrateSingle() {
     double ddt = dt;
     int Nxx = Nx;
     int Nyy = Ny;
-    // #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
-    // for (int i = 1; i < Nxx-1; ++i) {
-    //     for (int j = 1; j < Nyy-1; ++j) {
-    //         int indx = j+Nyy*i;
-    //         double u1_val = U1[indx];
-    //         double v1_val = V1[indx];
-    //         // Iterate over u matrix
-    //         U2[indx] = ddt * (mu1_val * (
-    //                             U1[indx+Nyy] +
-    //                             U1[indx-Nyy] +
-    //                             U1[indx+1]   +
-    //                             U1[indx-1]   -
-    //                             (4)*u1_val)           +
-    //                             f1(u1_val, v1_val)) + u1_val;
-    //         // Iterate over v matrix
-    //         V2[indx] = ddt * (mu2_val * (
-    //                             V1[indx+Nyy] +
-    //                             V1[indx-Nyy] +
-    //                             V1[indx+1]   +
-    //                             V1[indx-1]   -
-    //                             (4)*v1_val)           +
-    //                             f2(u1_val, v1_val)) + v1_val;
-    //     }
-    // }
-    // TimeIntegrateBC();
 
-    #pragma omp parallel for schedule(static) collapse(2) num_threads(4)
-    for (int i = 0; i < Nxx; ++i) {
+    for (int i = 1; i < sz-1; ++i) {
         for (int j = 0; j < Nyy; ++j) {
             int indx = j+Nyy*i;
             double u1_val = U1[indx];
             double v1_val = V1[indx];
-            int multiplier = 4-(i==0)-(j==0)-(i==Nxx-1)-(j==Nyy-1);
+            int multiplier = 4-(start==0 && i==1)-(j==0)-(end==Nxx && i==Nxx-1)-(j==Nyy-1);
             // Iterate over u matrix
             U2[indx] = ddt * (mu1_val * (
-                                (i < Nxx-1 ? U1[indx+Nyy] : 0) +
-                                (i         ? U1[indx-Nyy] : 0) +
+                                (end==Nxx && i==Nxx-1 ? 0 : U1[indx+Nyy]) +
+                                (start==0 && i==1     ? 0 : U1[indx-Nyy]) +
                                 (j < Nyy-1 ? U1[indx+1] : 0)   +
                                 (j         ? U1[indx-1] : 0)   -
                                 (multiplier)*u1_val)           +
                                 f1(u1_val, v1_val)) + u1_val;
             // Iterate over v matrix
             V2[indx] = ddt * (mu2_val * (
-                                (i < Nxx-1 ? V1[indx+Nyy] : 0) +
-                                (i         ? V1[indx-Nyy] : 0) +
+                                (end==Nxx && i==Nxx-1 ? 0 : V1[indx+Nyy]) +
+                                (start==0 && i==1     ? 0 : V1[indx-Nyy]) +
                                 (j < Nyy-1 ? V1[indx+1] : 0)   +
                                 (j         ? V1[indx-1] : 0)   -
                                 (multiplier)*v1_val)           +
@@ -125,131 +109,68 @@ void RD::TimeIntegrateSingle() {
         }
     }
 
+    // Barrier to synchronise processes
+    MPI_Barrier(MPI_COMM_WORLD);
+
     // Save current time step for next iteration
-    int sz = Nx*Ny;
-    #pragma omp parallel for schedule(static) num_threads(4)
-    for (int i = 0; i < sz; ++i) {
+    for (int i = Ny; i < ((sz-1)*Ny); ++i) {
         U1[i] = U2[i];
         V1[i] = V2[i];
     }
-}
 
-void RD::TimeIntegrateBC() {
-    double h = dx*dy;
-    double mu1_val  = mu1/h;
-    double mu2_val  = mu2/h;
+    // Barrier to synchronise processes
+    MPI_Barrier(MPI_COMM_WORLD);
 
-    // Copy to local scope, avoid referencing
-    double ddt = dt;
-    int Nxx = Nx;
-    int Nyy = Ny;
-    
-    // #pragma omp parallel for schedule(static)
-    for (int j = 0; j < Nyy; ++j) {
-        // Edge x = 0
-        int i = 0;
-        int indx = j+Nyy*i;
-        double u1_val = U1[indx];
-        double u1_val2 = (j < Nyy-1 ? U1[indx+1] : 0);
-        double u1_val3 = (j         ? U1[indx-1] : 0);
-        double v1_val = V1[indx];
-        double v1_val2 = (j < Nyy-1 ? V1[indx+1] : 0);
-        double v1_val3 = (j         ? V1[indx-1] : 0);
-        int multiplier = 3-(j==0)-(j==Nyy-1);
+    MPI_Request request;
+    // Send right edge (1), non-blocking
+    if (rank < size-1)  MPI_Isend(&U2[((sz-2)*Nyy)],    Nyy, MPI_DOUBLE, rank+1, 2, MPI_COMM_WORLD, &request);
+    // Send left edge (2), non-blocking
+    if (rank > 0)       MPI_Isend(&U2[Nyy],             Nyy, MPI_DOUBLE, rank-1, 1, MPI_COMM_WORLD, &request);
+    // Receive right edge (1), blocking
+    if (rank < size-1)  MPI_Recv(&U1[((sz-1)*Nyy)],     Nyy, MPI_DOUBLE, rank+1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // Receive left edge (2), blocking
+    if (rank > 0)       MPI_Recv(&U1[0],                Nyy, MPI_DOUBLE, rank-1, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            U1[indx+Nyy] +
-                            u1_val2  +
-                            u1_val3  -
-                            multiplier*u1_val) +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            V1[indx+Nyy] +
-                            v1_val2  +
-                            v1_val3  -
-                            multiplier*v1_val) +
-                            f2(u1_val, v1_val)) + v1_val;
+    // Send right edge (1), non-blocking
+    if (rank < size-1)  MPI_Isend(&V2[((sz-2)*Nyy)],    Nyy, MPI_DOUBLE, rank+1, 2, MPI_COMM_WORLD, &request);
+    // Send left edge (2), non-blocking
+    if (rank > 0)       MPI_Isend(&V2[Nyy],             Nyy, MPI_DOUBLE, rank-1, 1, MPI_COMM_WORLD, &request);
+    // Receive right edge (1), blocking
+    if (rank < size-1)  MPI_Recv(&V1[((sz-1)*Nyy)],     Nyy, MPI_DOUBLE, rank+1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // Receive left edge (2), blocking
+    if (rank > 0)       MPI_Recv(&V1[0],                Nyy, MPI_DOUBLE, rank-1, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        // Edge x = Nx - 1
-        i = Nxx - 1;
-        indx = j+Nyy*i;
-        u1_val = U1[indx];
-        v1_val = V1[indx];
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            U1[indx-Nyy] +
-                            u1_val2  +
-                            u1_val3  -
-                            multiplier*u1_val) +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            V1[indx-Nyy] +
-                            v1_val2  +
-                            v1_val3  -
-                            multiplier*v1_val) +
-                            f2(u1_val, v1_val)) + v1_val;
-    }
-
-    // #pragma omp parallel for schedule(static)
-    for (int i = 0; i < Nxx; ++i) {
-        // Edge y = 0
-        int j = 0;
-        int indx = j+Nyy*i;
-        double u1_val = U1[indx];
-        double u1_val2 = (i < Nxx-1 ? U1[indx+Nyy] : 0);
-        double u1_val3 = (i         ? U1[indx-Nyy] : 0);
-        double v1_val = V1[indx];
-        double v1_val2 = (i < Nxx-1 ? V1[indx+Nyy] : 0);
-        double v1_val3 = (i         ? V1[indx-Nyy] : 0);
-        int multiplier = (3-(i==0)-(i==Nxx-1));
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            u1_val2 +
-                            u1_val3 +
-                            U1[indx+1] -
-                            multiplier*u1_val)  +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            v1_val2 +
-                            v1_val3 +
-                            V1[indx+1] -
-                            multiplier*v1_val)  +
-                            f2(u1_val, v1_val)) + v1_val;
-
-        // Edge y = Ny - 1
-        j = Nyy - 1;
-        indx = j+Nyy*i;
-        u1_val = U1[indx];
-        v1_val = V1[indx];
-        // Iterate over u matrix
-        U2[indx] = ddt * (mu1_val * (
-                            u1_val2 +
-                            u1_val3 +
-                            U1[indx-1] -
-                            multiplier*u1_val)  +
-                            f1(u1_val, v1_val)) + u1_val;
-        // Iterate over v matrix
-        V2[indx] = ddt * (mu2_val * (
-                            v1_val2 +
-                            v1_val3 +
-                            V1[indx-1] -
-                            multiplier*v1_val)  +
-                            f2(u1_val, v1_val)) + v1_val;
-
-    }
+    // Barrier to synchronise processes
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void RD::writeOutput() {
-    std::ofstream outputFile("output.txt");
-    for (int j = 0; j < Ny; ++j) {
-        for (int i = 0; i < Nx; ++i) {
-            outputFile << std::setw(5) << i << std::setw(5) << j << std::setw(15) << U1[j + Ny * i] << std::setw(15) << V1[j + Ny * i] << std::endl;
-        }
-        outputFile << std::endl;
+    // Gather entire grid into one process
+    if (rank == 0) {
+        U_output = new double[Nx*Ny]();
+        MPI_Gather(&U1[Ny], ((sz-2)*Ny), MPI_DOUBLE, U_output, ((sz-2)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Gather(&U1[Ny], ((sz-2)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
-    outputFile.close();
+    if (rank == 0) {
+        V_output = new double[Nx*Ny]();
+        MPI_Gather(&V1[Ny], ((sz-2)*Ny), MPI_DOUBLE, V_output, ((sz-2)*Ny), MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Gather(&V1[Ny], ((sz-2)*Ny), MPI_DOUBLE, NULL, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
+
+    // Barrier to ensure that root thread (0) has received all data
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // Save data to output.txt
+    if (rank == 0) {
+        std::ofstream outputFile("output.txt");
+        for (int j = 0; j < Ny; ++j) {
+            for (int i = 0; i < Nx; ++i) {
+                outputFile << std::setw(5) << i << std::setw(5) << j << std::setw(15) << U_output[j + Ny * i] << std::setw(15) << V_output[j + Ny * i] << std::endl;
+            }
+            outputFile << std::endl;
+        }
+        outputFile.close();
+    }
 }
