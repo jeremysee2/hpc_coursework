@@ -45,11 +45,6 @@ class ReactionDiffusion {
         void TimeIntegrateSingle();
 
         /**
-         * @brief Perform integration at boundary.
-         */
-        void TimeIntegrateBC();
-
-        /**
          * @brief Getter method to output entire grid.
          */
         void writeOutput();
