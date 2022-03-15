@@ -1,0 +1,88 @@
+**My Laptop**
+num_threads: time for test1
+12: 18.667
+8: 7.721
+4: 8.268
+2: 9.681
+1: 13.869
+
+num_threads: time for test2 (OpenMP): MPI (num_proc)
+12: Hang : 92.048
+8: 49.883 : 73.602
+4: 74.607 : 63.243
+2: 87.200 : 77.347
+1: 127.760 : NA
+
+num_threads: time for test4 : MPI
+12: 63.914 : 11.884
+8: 10.090 : 11.763
+4: 11.150 : 11.512
+2: 13.516 : 15.667
+1: 24.584 : NA
+
+**Typhoon**
+num_threads: time for test2 (OpenMP): MPI (num_proc)
+40: 8.098 : 8.460
+32: 7.072 : 8.485
+24: 7.135 : 9.988
+20: 7.781 : 10.262
+16: 8.788 : 11.113
+12: 9.550 : 13.664
+8: 12.341 : 17.850
+4: 20.350 : 31.038
+2: 36.481 : 60.763
+1: 70.383 : NA
+
+num_threads: time for test4 : MPI
+40: 3.406 : 3.832
+32: 2.757 : 3.546
+24: 2.422 : 3.906
+20: 2.600 : 3.973
+16: 2.584 : 3.714
+12: 2.697 : 4.207
+8: 3.091 : 4.901
+4: 4.223 : 6.564
+2: 6.919 : 11.195
+1: 12.898 : NA
+
+
+
+
+[typhoon:981867] Read -1, expected 104416, errno = 14
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 0 on node typhoon exited on signal 11 (Segmentation fault).
+--------------------------------------------------------------------------
+make: *** [Makefile:25: test2] Error 139
+
+--------------------
+
+
+main: malloc.c:2379: sysmalloc: Assertion `(old_top == initial_top (av) && old_size == 0) || ((unsigned long) (old_size) >= MINSIZE && prev_inuse (old_top) && ((unsigned long) old_end & (pagesize - 1)) == 0)' failed.
+[typhoon:871255] *** Process received signal ***
+[typhoon:871255] Signal: Aborted (6)
+[typhoon:871255] Signal code:  (-6)
+[typhoon:871255] [ 0] /lib/x86_64-linux-gnu/libc.so.6(+0x3bd60)[0x7f2915ec9d60]
+[typhoon:871255] [ 1] /lib/x86_64-linux-gnu/libc.so.6(gsignal+0x141)[0x7f2915ec9ce1]
+[typhoon:871255] [ 2] /lib/x86_64-linux-gnu/libc.so.6(abort+0x123)[0x7f2915eb3537]
+[typhoon:871255] [ 3] /lib/x86_64-linux-gnu/libc.so.6(+0x85a38)[0x7f2915f13a38]
+[typhoon:871255] [ 4] /lib/x86_64-linux-gnu/libc.so.6(+0x87a4a)[0x7f2915f15a4a]
+[typhoon:871255] [ 5] /lib/x86_64-linux-gnu/libc.so.6(+0x891b5)[0x7f2915f171b5]
+[typhoon:871255] [ 6] /lib/x86_64-linux-gnu/libc.so.6(__libc_malloc+0x1a9)[0x7f2915f18299]
+[typhoon:871255] [ 7] /lib/x86_64-linux-gnu/libstdc++.so.6(_Znwm+0x15)[0x7f29161130b5]
+[typhoon:871255] [ 8] ./main(+0x208a9)[0x55e1e25c18a9]
+[typhoon:871255] [ 9] ./main(+0x12501)[0x55e1e25b3501]
+[typhoon:871255] [10] /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0xea)[0x7f2915eb4d0a]
+[typhoon:871255] [11] ./main(+0x127ba)[0x55e1e25b37ba]
+[typhoon:871255] *** End of error message ***
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 0 on node typhoon exited on signal 6 (Aborted).
+--------------------------------------------------------------------------
+make: *** [Makefile:31: test4] Error 134
