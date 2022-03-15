@@ -74,7 +74,7 @@ void RD::TimeIntegrateSingle() {
     int Nxx = Nx;
     int Nyy = Ny;
 
-    #pragma omp parallel for schedule(static) collapse(2) num_threads(1)
+    #pragma omp parallel for schedule(static) collapse(2) num_threads(10)
     for (int i = 0; i < Nxx; ++i) {
         for (int j = 0; j < Nyy; ++j) {
             int indx = j+Nyy*i;
@@ -102,7 +102,7 @@ void RD::TimeIntegrateSingle() {
 
     // Save current time step for next iteration
     int sz = Nx*Ny;
-    #pragma omp parallel for schedule(static) num_threads(1)
+    #pragma omp parallel for schedule(static) num_threads(10)
     for (int i = 0; i < sz; ++i) {
         U1[i] = U2[i];
         V1[i] = V2[i];
