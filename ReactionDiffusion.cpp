@@ -6,6 +6,7 @@
 #define RD ReactionDiffusion
 #define f1(u,v) (eps*u*(1.0-u)* (u - (v+b)/a))
 #define f2(u,v) (u*u*u - v)
+#define NUM_THRDS 10
 
 RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
                         double b, double mu1, double mu2, double eps,
@@ -58,7 +59,7 @@ void RD::SetInitialConditions() {
 }
 
 void RD::TimeIntegrate() {
-    int timeSteps = int(T/dt);
+    int timeSteps = int(T/dt)/2;
     // Cannot parallelise this, due to race condition
     for (int k = 0; k<timeSteps; ++k) {
         TimeIntegrateSingle();
@@ -74,7 +75,8 @@ void RD::TimeIntegrateSingle() {
     int Nxx = Nx;
     int Nyy = Ny;
 
-    #pragma omp parallel for schedule(static) collapse(2) num_threads(10)
+    // Iterate once from U1 -> U2
+    #pragma omp parallel for schedule(static) collapse(2) num_threads(NUM_THRDS)
     for (int i = 0; i < Nxx; ++i) {
         for (int j = 0; j < Nyy; ++j) {
             int indx = j+Nyy*i;
@@ -100,12 +102,31 @@ void RD::TimeIntegrateSingle() {
         }
     }
 
-    // Save current time step for next iteration
-    int sz = Nx*Ny;
-    #pragma omp parallel for schedule(static) num_threads(10)
-    for (int i = 0; i < sz; ++i) {
-        U1[i] = U2[i];
-        V1[i] = V2[i];
+    // Iterate once from U2 -> U1
+    #pragma omp parallel for schedule(static) collapse(2) num_threads(NUM_THRDS)
+    for (int i = 0; i < Nxx; ++i) {
+        for (int j = 0; j < Nyy; ++j) {
+            int indx = j+Nyy*i;
+            double u2_val = U2[indx];
+            double v2_val = V2[indx];
+            int multiplier = 4-(i==0)-(j==0)-(i==Nxx-1)-(j==Nyy-1);
+            // Iterate over u matrix
+            U1[indx] = ddt * (mu1_val * (
+                                (i < Nxx-1 ? U2[indx+Nyy] : 0) +
+                                (i         ? U2[indx-Nyy] : 0) +
+                                (j < Nyy-1 ? U2[indx+1] : 0)   +
+                                (j         ? U2[indx-1] : 0)   -
+                                (multiplier)*u2_val)           +
+                                f1(u2_val, v2_val)) + u2_val;
+            // Iterate over v matrix
+            V1[indx] = ddt * (mu2_val * (
+                                (i < Nxx-1 ? V2[indx+Nyy] : 0) +
+                                (i         ? V2[indx-Nyy] : 0) +
+                                (j < Nyy-1 ? V2[indx+1] : 0)   +
+                                (j         ? V2[indx-1] : 0)   -
+                                (multiplier)*v2_val)           +
+                                f2(u2_val, v2_val)) + v2_val;
+        }
     }
 }
 
