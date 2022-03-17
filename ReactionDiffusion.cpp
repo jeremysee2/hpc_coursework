@@ -60,6 +60,7 @@ void RD::SetInitialConditions() {
 
 void RD::TimeIntegrate() {
     int timeSteps = int(T/dt)/2;
+
     // Cannot parallelise this, due to race condition
     for (int k = 0; k<timeSteps; ++k) {
         TimeIntegrateSingle();
