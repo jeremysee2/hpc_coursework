@@ -133,9 +133,9 @@ void RD::TimeIntegrateSingle() {
 
 void RD::writeOutput() {
     std::ofstream outputFile("output.txt");
-    for (int j = 0; j < Ny; ++j) {
-        for (int i = 0; i < Nx; ++i) {
-            outputFile << std::setw(5) << i << std::setw(5) << j << std::setw(15) << U1[j + Ny * i] << std::setw(15) << V1[j + Ny * i] << std::endl;
+    for (int j = 0; j < Nx; ++j) {
+        for (int i = 0; i < Ny; ++i) {
+            outputFile << std::setw(5) << i << std::setw(5) << j << std::setw(15) << U1[j*Ny+i] << std::setw(15) << V1[j*Ny+i] << std::endl;
         }
         outputFile << std::endl;
     }
