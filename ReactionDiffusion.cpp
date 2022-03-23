@@ -6,7 +6,7 @@
 #define RD ReactionDiffusion
 #define f1(u,v) (eps*u*(1.0-u)* (u - (v+b)/a))
 #define f2(u,v) (u*u*u - v)
-#define NUM_THRDS 10
+#define NUM_THRDS 40
 
 RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
                         double b, double mu1, double mu2, double eps,
@@ -133,9 +133,9 @@ void RD::TimeIntegrateSingle() {
 
 void RD::writeOutput() {
     std::ofstream outputFile("output.txt");
-    for (int j = 0; j < Nx; ++j) {
-        for (int i = 0; i < Ny; ++i) {
-            outputFile << std::setw(5) << i << std::setw(5) << j << std::setw(15) << U1[j*Ny+i] << std::setw(15) << V1[j*Ny+i] << std::endl;
+    for (int j = 0; j < Ny; ++j) {
+        for (int i = 0; i < Nx; ++i) {
+            outputFile << std::setw(5) << i << std::setw(5) << j << std::setw(15) << U1[i*Ny+j] << std::setw(15) << V1[i*Ny+j] << std::endl;
         }
         outputFile << std::endl;
     }
