@@ -16,3 +16,22 @@ When performing the iteration, the initial and boundary conditions are as follow
 
 The data pipeline has been designed to take advantage of OOP concepts such as abstraction and encapsulation. This way, data can be passed from one object/method to another, making it easy to identify computational bottlenecks where parallelism can be applied. This will reduce the *time-to-solution* of the program.
 
+![](img/hpc-seq-diagram.png)
+
+## Results
+
+Test 1:
+
+![](img/test1_U.png)
+
+Test 2:
+
+![](img/test2_U.png)
+
+Test 3:
+
+![](img/test3_U.png)
+
+Test 4:
+
+![](img/test4_U.png)
