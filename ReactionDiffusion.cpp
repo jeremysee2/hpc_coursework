@@ -6,7 +6,6 @@
 #define RD ReactionDiffusion
 #define f1(u,v) (eps*u*(1.0-u)* (u - (v+b)/a))
 #define f2(u,v) (u*u*u - v)
-#define NUM_THRDS 40
 
 RD::ReactionDiffusion  (double dt, int T, int Nx, int Ny, double a,
                         double b, double mu1, double mu2, double eps,
@@ -77,7 +76,7 @@ void RD::TimeIntegrateSingle() {
     int Nyy = Ny;
 
     // Iterate once from U1 -> U2
-    #pragma omp parallel for schedule(static) collapse(2) num_threads(NUM_THRDS)
+    #pragma omp parallel for schedule(static) collapse(2)
     for (int i = 0; i < Nxx; ++i) {
         for (int j = 0; j < Nyy; ++j) {
             int indx = j+Nyy*i;
@@ -104,7 +103,7 @@ void RD::TimeIntegrateSingle() {
     }
 
     // Iterate once from U2 -> U1
-    #pragma omp parallel for schedule(static) collapse(2) num_threads(NUM_THRDS)
+    #pragma omp parallel for schedule(static) collapse(2) 
     for (int i = 0; i < Nxx; ++i) {
         for (int j = 0; j < Nyy; ++j) {
             int indx = j+Nyy*i;
@@ -135,7 +134,7 @@ void RD::writeOutput() {
     std::ofstream outputFile("output.txt");
     for (int j = 0; j < Ny; ++j) {
         for (int i = 0; i < Nx; ++i) {
-            outputFile << std::setw(5) << i << std::setw(5) << j << std::setw(15) << U1[i*Ny+j] << std::setw(15) << V1[i*Ny+j] << std::endl;
+            outputFile << std::setw(5) << j << std::setw(5) << i << std::setw(15) << U1[j*Ny+i] << std::setw(15) << V1[j*Ny+i] << std::endl;
         }
         outputFile << std::endl;
     }
